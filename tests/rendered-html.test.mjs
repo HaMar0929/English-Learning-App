@@ -132,6 +132,43 @@ test("provides all 12 word categories and 120 independently stored words", async
   assert.match(wordsModule, /返回单词分类/);
 });
 
+test("adds ten GitHub Pages-safe animal word images and full learning details", async () => {
+  const data = await readFile(new URL("../app/data/words.ts", import.meta.url), "utf8");
+  const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
+  const imagePaths = [...data.matchAll(/image: "(images\/words\/animals\/[a-z-]+\.webp)"/g)]
+    .map((match) => match[1]);
+
+  assert.deepEqual(imagePaths, [
+    "images/words/animals/cat.webp",
+    "images/words/animals/dog.webp",
+    "images/words/animals/bird.webp",
+    "images/words/animals/fish.webp",
+    "images/words/animals/rabbit.webp",
+    "images/words/animals/duck.webp",
+    "images/words/animals/pig.webp",
+    "images/words/animals/cow.webp",
+    "images/words/animals/horse.webp",
+    "images/words/animals/monkey.webp",
+  ]);
+  assert.equal(data.match(/image: "images\/words\//g)?.length, 10);
+
+  for (const imagePath of imagePaths) {
+    assert.ok(!imagePath.startsWith("/"), `${imagePath} must be app-relative`);
+    const publicImage = await readFile(new URL(`../public/${imagePath}`, import.meta.url));
+    assert.equal(publicImage.subarray(0, 4).toString(), "RIFF");
+    await access(new URL(`../dist/client/${imagePath}`, import.meta.url));
+  }
+
+  assert.match(wordsModule, /src=\{item\.image\}/);
+  assert.match(wordsModule, /onError=\{\(\) => setFailedImage\(item\.image\)\}/);
+  assert.match(
+    wordsModule,
+    /<WordVisual item=\{currentWord\}[\s\S]*currentWord\.word[\s\S]*currentWord\.phonetic[\s\S]*currentWord\.chinese[\s\S]*currentWord\.example[\s\S]*currentWord\.exampleCn[\s\S]*word-speak-button[\s\S]*word-status-actions/,
+  );
+  assert.match(wordsModule, /toggleCurrentWordState\("favorite"\)/);
+  assert.match(wordsModule, /toggleCurrentWordState\("mastered"\)/);
+});
+
 test("persists word progress safely after client hydration", async () => {
   const {
     getWordLearningState,

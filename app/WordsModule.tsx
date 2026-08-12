@@ -23,6 +23,24 @@ function speakWord(word: string, onSpeakingChange: (speaking: boolean) => void) 
 }
 
 function WordVisual({ item }: { item: WordItem }) {
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+
+  if (item.image && failedImage !== item.image) {
+    return (
+      // Images are pre-sized WebP assets, and a native error handler preserves the emoji fallback.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        className="word-image"
+        src={item.image}
+        alt={item.chinese}
+        width="640"
+        height="640"
+        decoding="async"
+        onError={() => setFailedImage(item.image)}
+      />
+    );
+  }
+
   if (item.type === "color") {
     return (
       <div
@@ -30,17 +48,6 @@ function WordVisual({ item }: { item: WordItem }) {
         style={{ backgroundColor: item.color }}
         role="img"
         aria-label={`${item.chinese}色块`}
-      />
-    );
-  }
-
-  if (item.image) {
-    return (
-      <div
-        className="word-image"
-        style={{ backgroundImage: `url(${item.image})` }}
-        role="img"
-        aria-label={item.chinese}
       />
     );
   }
@@ -206,7 +213,12 @@ export default function WordsModule() {
           {currentWord.word}
           <span aria-hidden="true">🔊</span>
         </button>
+        <p className="word-phonetic">{currentWord.phonetic}</p>
         <p className="word-chinese">{currentWord.chinese}</p>
+        <div className="word-example">
+          <p>{currentWord.example}</p>
+          <p lang="zh-CN">{currentWord.exampleCn}</p>
+        </div>
         <button
           className="word-speak-button"
           type="button"

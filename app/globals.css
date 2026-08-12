@@ -10,6 +10,8 @@
   --green-soft: #e5f1eb;
   --gold: #dda83c;
   --line: #dfe4de;
+  --font-geist-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --font-geist-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 * {

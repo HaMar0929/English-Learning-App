@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+export const dynamic = "force-static";
+
 type Section = "sentences" | "dialogues";
 
 type Sentence = {
@@ -128,11 +130,6 @@ const dialogues: Dialogue[] = [
 
 function SpeakerButton({ text }: { text: string }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isSupported, setIsSupported] = useState(true);
-
-  useEffect(() => {
-    setIsSupported("speechSynthesis" in window);
-  }, []);
 
   function speak() {
     if (!("speechSynthesis" in window)) return;
@@ -158,9 +155,8 @@ function SpeakerButton({ text }: { text: string }) {
       className="speaker-button"
       type="button"
       onClick={speak}
-      disabled={!isSupported}
       aria-label={`播放发音：${text}`}
-      title={isSupported ? "播放英文发音" : "当前浏览器不支持语音朗读"}
+      title="播放英文发音"
     >
       <span aria-hidden="true" className="speaker-icon">
         {isSpeaking ? "◼" : "▶"}
@@ -172,6 +168,48 @@ function SpeakerButton({ text }: { text: string }) {
 
 export default function Home() {
   const [section, setSection] = useState<Section>("sentences");
+
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV !== "production" ||
+      !("serviceWorker" in navigator)
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function prepareOfflineUse() {
+      const appBaseUrl = new URL(".", document.baseURI);
+      const registration = await navigator.serviceWorker.register(
+        new URL("sw.js", appBaseUrl),
+        {
+          scope: appBaseUrl.pathname,
+        },
+      );
+      await navigator.serviceWorker.ready;
+
+      if (cancelled || !registration.active) return;
+
+      const loadedResources = performance
+        .getEntriesByType("resource")
+        .map((entry) => entry.name)
+        .filter((url) => new URL(url).origin === window.location.origin);
+
+      registration.active.postMessage({
+        type: "CACHE_URLS",
+        urls: [window.location.href, ...loadedResources],
+      });
+    }
+
+    prepareOfflineUse().catch((error) => {
+      console.warn("离线缓存准备失败：", error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function selectSection(nextSection: Section) {
     window.speechSynthesis?.cancel();

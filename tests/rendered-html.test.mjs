@@ -132,13 +132,15 @@ test("provides all 12 word categories and 120 independently stored words", async
   assert.match(wordsModule, /返回单词分类/);
 });
 
-test("adds ten GitHub Pages-safe animal word images and full learning details", async () => {
+test("adds GitHub Pages-safe animal and fruit word images with full learning details", async () => {
   const data = await readFile(new URL("../app/data/words.ts", import.meta.url), "utf8");
   const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
-  const imagePaths = [...data.matchAll(/image: "(images\/words\/animals\/[a-z-]+\.webp)"/g)]
+  const animalImagePaths = [...data.matchAll(/image: "(images\/words\/animals\/[a-z-]+\.webp)"/g)]
+    .map((match) => match[1]);
+  const fruitImagePaths = [...data.matchAll(/image: "(images\/words\/fruits\/[a-z-]+\.webp)"/g)]
     .map((match) => match[1]);
 
-  assert.deepEqual(imagePaths, [
+  assert.deepEqual(animalImagePaths, [
     "images/words/animals/cat.webp",
     "images/words/animals/dog.webp",
     "images/words/animals/bird.webp",
@@ -150,12 +152,25 @@ test("adds ten GitHub Pages-safe animal word images and full learning details", 
     "images/words/animals/horse.webp",
     "images/words/animals/monkey.webp",
   ]);
-  assert.equal(data.match(/image: "images\/words\//g)?.length, 10);
+  assert.deepEqual(fruitImagePaths, [
+    "images/words/fruits/apple.webp",
+    "images/words/fruits/banana.webp",
+    "images/words/fruits/orange.webp",
+    "images/words/fruits/grape.webp",
+    "images/words/fruits/pear.webp",
+    "images/words/fruits/peach.webp",
+    "images/words/fruits/watermelon.webp",
+    "images/words/fruits/strawberry.webp",
+    "images/words/fruits/lemon.webp",
+    "images/words/fruits/mango.webp",
+  ]);
+  assert.equal(data.match(/image: "images\/words\//g)?.length, 20);
 
-  for (const imagePath of imagePaths) {
+  for (const imagePath of [...animalImagePaths, ...fruitImagePaths]) {
     assert.ok(!imagePath.startsWith("/"), `${imagePath} must be app-relative`);
     const publicImage = await readFile(new URL(`../public/${imagePath}`, import.meta.url));
     assert.equal(publicImage.subarray(0, 4).toString(), "RIFF");
+    assert.ok(publicImage.byteLength < 100_000, `${imagePath} must stay below 100 KB`);
     await access(new URL(`../dist/client/${imagePath}`, import.meta.url));
   }
 

@@ -3,6 +3,14 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { wordCategories, type WordCategory, type WordItem } from "./data/words";
 import { speakEnglish, stopSpeech as cancelSpeech } from "./speech";
+import {
+  getWordLearningState,
+  loadWordProgress,
+  saveWordProgress,
+  toggleWordProgress,
+  type WordLearningState,
+  type WordProgress,
+} from "./word-progress";
 
 type WordsView = "categories" | "learning" | "complete";
 
@@ -49,9 +57,22 @@ export default function WordsModule() {
   const [category, setCategory] = useState<WordCategory | null>(null);
   const [wordIndex, setWordIndex] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [progress, setProgress] = useState<WordProgress>({});
+  const [isProgressReady, setIsProgressReady] = useState(false);
 
   useEffect(() => {
-    return () => cancelSpeech();
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setProgress(loadWordProgress());
+      setIsProgressReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+      cancelSpeech();
+    };
   }, []);
 
   function stopSpeech() {
@@ -86,6 +107,17 @@ export default function WordsModule() {
       return;
     }
     setWordIndex((current) => current + 1);
+  }
+
+  function toggleCurrentWordState(field: keyof WordLearningState) {
+    if (!category || !isProgressReady) return;
+
+    const wordId = category.words[wordIndex].id;
+    setProgress((current) => {
+      const next = toggleWordProgress(current, wordId, field);
+      saveWordProgress(next);
+      return next;
+    });
   }
 
   if (view === "categories") {
@@ -146,6 +178,7 @@ export default function WordsModule() {
   }
 
   const currentWord = category.words[wordIndex];
+  const currentWordState = getWordLearningState(progress, currentWord.id);
 
   return (
     <section className="word-learning" aria-labelledby="current-word">
@@ -182,6 +215,28 @@ export default function WordsModule() {
           <span aria-hidden="true">{isSpeaking ? "🔉" : "🔊"}</span>
           {isSpeaking ? "正在播放" : "听发音"}
         </button>
+        <div className="word-status-actions">
+          <button
+            className={currentWordState.favorite ? "active" : ""}
+            type="button"
+            onClick={() => toggleCurrentWordState("favorite")}
+            disabled={!isProgressReady}
+            aria-pressed={currentWordState.favorite}
+          >
+            <span aria-hidden="true">{currentWordState.favorite ? "★" : "☆"}</span>
+            收藏
+          </button>
+          <button
+            className={currentWordState.mastered ? "active" : ""}
+            type="button"
+            onClick={() => toggleCurrentWordState("mastered")}
+            disabled={!isProgressReady}
+            aria-pressed={currentWordState.mastered}
+          >
+            <span aria-hidden="true">{currentWordState.mastered ? "✓" : "○"}</span>
+            已掌握
+          </button>
+        </div>
       </article>
 
       <div className="word-navigation">

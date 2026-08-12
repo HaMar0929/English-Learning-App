@@ -132,6 +132,76 @@ test("provides all 12 word categories and 120 independently stored words", async
   assert.match(wordsModule, /返回单词分类/);
 });
 
+test("persists word progress safely after client hydration", async () => {
+  const {
+    getWordLearningState,
+    loadWordProgress,
+    parseWordProgress,
+    saveWordProgress,
+    toggleWordProgress,
+  } = await import("../app/word-progress.ts");
+  const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.deepEqual(parseWordProgress(null), {});
+  assert.deepEqual(parseWordProgress("not JSON"), {});
+  assert.deepEqual(parseWordProgress("[]"), {});
+  assert.deepEqual(parseWordProgress('{"animals-cat":{"favorite":true,"mastered":false}}'), {
+    "animals-cat": { favorite: true, mastered: false },
+  });
+  assert.deepEqual(parseWordProgress('{"animals-cat":{"favorite":"yes"}}'), {
+    "animals-cat": { favorite: false, mastered: false },
+  });
+
+  const favoriteProgress = toggleWordProgress({}, "animals-cat", "favorite");
+  assert.deepEqual(getWordLearningState(favoriteProgress, "animals-cat"), {
+    favorite: true,
+    mastered: false,
+  });
+  const masteredProgress = toggleWordProgress(favoriteProgress, "animals-cat", "mastered");
+  assert.deepEqual(getWordLearningState(masteredProgress, "animals-cat"), {
+    favorite: true,
+    mastered: true,
+  });
+
+  let storedValue = null;
+  globalThis.window = {
+    localStorage: {
+      getItem: () => storedValue,
+      setItem: (_key, value) => {
+        storedValue = value;
+      },
+    },
+  };
+
+  try {
+    assert.equal(saveWordProgress(masteredProgress), true);
+    assert.deepEqual(loadWordProgress(), masteredProgress);
+    storedValue = "damaged";
+    assert.deepEqual(loadWordProgress(), {});
+    globalThis.window.localStorage.getItem = () => {
+      throw new Error("storage unavailable");
+    };
+    assert.deepEqual(loadWordProgress(), {});
+    globalThis.window.localStorage.setItem = () => {
+      throw new Error("storage unavailable");
+    };
+    assert.equal(saveWordProgress(masteredProgress), false);
+  } finally {
+    delete globalThis.window;
+  }
+
+  assert.match(wordsModule, /useState<WordProgress>\(\{\}\)/);
+  assert.match(wordsModule, /useEffect\(\(\) => \{[\s\S]*queueMicrotask\(\(\) => \{[\s\S]*setProgress\(loadWordProgress\(\)\)/);
+  assert.doesNotMatch(wordsModule, /useState<WordProgress>\([^)]*loadWordProgress/);
+  assert.match(wordsModule, /aria-pressed=\{currentWordState\.favorite\}/);
+  assert.match(wordsModule, /aria-pressed=\{currentWordState\.mastered\}/);
+  assert.match(wordsModule, />\s*收藏\s*<\/button>/s);
+  assert.match(wordsModule, />\s*已掌握\s*<\/button>/s);
+  assert.match(css, /\.word-status-actions\s*\{[^}]*grid-template-columns: 1fr 1fr/s);
+  assert.match(css, /\.word-status-actions button\s*\{[^}]*min-height: 48px/s);
+});
+
 test("keeps the words experience responsive and touch friendly", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 

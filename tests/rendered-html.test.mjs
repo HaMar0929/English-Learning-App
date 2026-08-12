@@ -41,6 +41,9 @@ test("provides all 12 word categories and 120 independently stored words", async
   const categoryMatches = [...data.matchAll(/id: "(animals|fruits|colors|family|things|body|numbers|food|vehicles|clothes|actions|feelings)"/g)];
   const categoryIds = categoryMatches.map((match) => match[1]);
   const wordEntries = data.match(/\{ word: "[^"]+", chinese: "[^"]+", emoji: "[^"]*"/g) ?? [];
+  const learningDetails = [...data.matchAll(
+    /^\s+"([^"]+)": \{ phonetic: "([^"]+)", example: "([^"]+)", exampleCn: "([^"]+)" \},$/gm,
+  )];
 
   assert.deepEqual(categoryIds, [
     "animals",
@@ -71,6 +74,24 @@ test("provides all 12 word categories and 120 independently stored words", async
   const generatedIds = [...data.matchAll(/\{ word: "([^"]+)", chinese: "([^"]+)", emoji: "[^"]*"/g)]
     .map((match, index) => `${categoryMatches[Math.floor(index / 10)][1]}-${match[1]}`);
   assert.equal(new Set(generatedIds).size, 120);
+  assert.equal(learningDetails.length, 120);
+  assert.deepEqual(
+    learningDetails.map((match) => match[1]),
+    generatedIds,
+    "learning details must preserve every existing word ID and its order",
+  );
+  for (const [index, detail] of learningDetails.entries()) {
+    const [, id, phonetic, example, exampleCn] = detail;
+    const word = [...data.matchAll(/\{ word: "([^"]+)", chinese: "([^"]+)", emoji: "[^"]*"/g)][index][1];
+
+    assert.match(phonetic, /^\/.+\/$/, `${id} must have a phonetic transcription`);
+    assert.ok(example.trim(), `${id} must have an English example`);
+    assert.ok(exampleCn.trim(), `${id} must have a Chinese example translation`);
+    assert.ok(
+      example.toLowerCase().includes(word.toLowerCase()),
+      `${id} example must contain its target word`,
+    );
+  }
   const expectedV2Words = [
     ["one", "一"], ["two", "二"], ["three", "三"], ["four", "四"], ["five", "五"],
     ["six", "六"], ["seven", "七"], ["eight", "八"], ["nine", "九"], ["ten", "十"],
@@ -94,6 +115,10 @@ test("provides all 12 word categories and 120 independently stored words", async
   assert.match(data, /word: "subway", chinese: "地铁"/);
   assert.match(data, /word: "thirsty", chinese: "渴"/);
   assert.match(data, /word: "excited", chinese: "兴奋"/);
+  assert.match(data, /phonetic: string/);
+  assert.match(data, /example: string/);
+  assert.match(data, /exampleCn: string/);
+  assert.match(data, /\.\.\.details/);
   assert.match(data, /image: item\.image \?\? null/);
   assert.match(data, /type: item\.type \?\? "emoji"/);
   assert.match(data, /type: "color"/);

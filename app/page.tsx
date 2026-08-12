@@ -258,7 +258,7 @@ export default function Home() {
           >
             <span className="tab-icon" aria-hidden="true">🔤</span>
             <span className="tab-label">单词学习 <small>Words</small></span>
-            <span className="tab-count">60 词</span>
+            <span className="tab-count">120 词</span>
           </button>
         </nav>
 

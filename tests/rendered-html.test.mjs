@@ -32,17 +32,67 @@ test("statically exports the English learning homepage", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
-test("provides all six word categories and 60 independently stored words", async () => {
+test("provides all 12 word categories and 120 independently stored words", async () => {
   const data = await readFile(new URL("../app/data/words.ts", import.meta.url), "utf8");
   const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
-  const categoryIds = [...data.matchAll(/id: "(animals|fruits|colors|family|things|body)"/g)]
-    .map((match) => match[1]);
+  const categoryMatches = [...data.matchAll(/id: "(animals|fruits|colors|family|things|body|numbers|food|vehicles|clothes|actions|feelings)"/g)];
+  const categoryIds = categoryMatches.map((match) => match[1]);
   const wordEntries = data.match(/\{ word: "[^"]+", chinese: "[^"]+", emoji: "[^"]*"/g) ?? [];
 
-  assert.deepEqual(categoryIds, ["animals", "fruits", "colors", "family", "things", "body"]);
-  assert.equal(wordEntries.length, 60);
+  assert.deepEqual(categoryIds, [
+    "animals",
+    "fruits",
+    "colors",
+    "family",
+    "things",
+    "body",
+    "numbers",
+    "food",
+    "vehicles",
+    "clothes",
+    "actions",
+    "feelings",
+  ]);
+  assert.equal(wordEntries.length, 120);
+  for (const [index, categoryMatch] of categoryMatches.entries()) {
+    const categorySource = data.slice(
+      categoryMatch.index,
+      categoryMatches[index + 1]?.index ?? data.indexOf("export const allWords"),
+    );
+    assert.equal(
+      categorySource.match(/\{ word: /g)?.length,
+      10,
+      `${categoryMatch[1]} must contain exactly 10 words`,
+    );
+  }
+  const generatedIds = [...data.matchAll(/\{ word: "([^"]+)", chinese: "([^"]+)", emoji: "[^"]*"/g)]
+    .map((match, index) => `${categoryMatches[Math.floor(index / 10)][1]}-${match[1]}`);
+  assert.equal(new Set(generatedIds).size, 120);
+  const expectedV2Words = [
+    ["one", "一"], ["two", "二"], ["three", "三"], ["four", "四"], ["five", "五"],
+    ["six", "六"], ["seven", "七"], ["eight", "八"], ["nine", "九"], ["ten", "十"],
+    ["rice", "米饭"], ["bread", "面包"], ["egg", "鸡蛋"], ["milk", "牛奶"], ["water", "水"],
+    ["cake", "蛋糕"], ["candy", "糖果"], ["juice", "果汁"], ["chicken", "鸡肉"], ["noodles", "面条"],
+    ["car", "汽车"], ["bus", "公交车"], ["train", "火车"], ["bike", "自行车"], ["plane", "飞机"],
+    ["boat", "小船"], ["taxi", "出租车"], ["truck", "卡车"], ["subway", "地铁"], ["ship", "轮船"],
+    ["shirt", "衬衫"], ["T-shirt", "T恤"], ["pants", "裤子"], ["dress", "连衣裙"], ["shoes", "鞋"],
+    ["socks", "袜子"], ["hat", "帽子"], ["coat", "外套"], ["skirt", "裙子"], ["shorts", "短裤"],
+    ["run", "跑"], ["walk", "走"], ["jump", "跳"], ["eat", "吃"], ["drink", "喝"],
+    ["sleep", "睡觉"], ["sit", "坐"], ["stand", "站"], ["read", "阅读"], ["write", "写"],
+    ["happy", "开心"], ["sad", "难过"], ["angry", "生气"], ["tired", "累"], ["hungry", "饿"],
+    ["thirsty", "渴"], ["scared", "害怕"], ["excited", "兴奋"], ["sleepy", "困"], ["good", "很好"],
+  ];
+  const actualV2Words = [...data.matchAll(/\{ word: "([^"]+)", chinese: "([^"]+)", emoji: "[^"]*"/g)]
+    .slice(60)
+    .map((match) => [match[1], match[2]]);
+  assert.deepEqual(actualV2Words, expectedV2Words);
+  assert.match(data, /word: "T-shirt", chinese: "T恤"/);
+  assert.match(data, /word: "water", chinese: "水"/);
+  assert.match(data, /word: "subway", chinese: "地铁"/);
+  assert.match(data, /word: "thirsty", chinese: "渴"/);
+  assert.match(data, /word: "excited", chinese: "兴奋"/);
   assert.match(data, /image: item\.image \?\? null/);
   assert.match(data, /type: item\.type \?\? "emoji"/);
   assert.match(data, /type: "color"/);

@@ -16,6 +16,8 @@ test("statically exports the English learning homepage", async () => {
   assert.match(html, /轻松开口说英语/);
   assert.match(html, /英语句子/);
   assert.match(html, /简单对话/);
+  assert.match(html, /单词学习/);
+  assert.match(html, /Words/);
   assert.match(html, /Good morning!/);
   assert.match(html, /Have a nice day!/);
   assert.match(html, /播放发音/);
@@ -28,6 +30,41 @@ test("statically exports the English learning homepage", async () => {
   assert.match(html, /name="theme-color" content="#0f513f"/);
   assert.doesNotMatch(html, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
+});
+
+test("provides all six word categories and 60 independently stored words", async () => {
+  const data = await readFile(new URL("../app/data/words.ts", import.meta.url), "utf8");
+  const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  const categoryIds = [...data.matchAll(/id: "(animals|fruits|colors|family|things|body)"/g)]
+    .map((match) => match[1]);
+  const wordEntries = data.match(/\{ word: "[^"]+", chinese: "[^"]+", emoji: "[^"]*"/g) ?? [];
+
+  assert.deepEqual(categoryIds, ["animals", "fruits", "colors", "family", "things", "body"]);
+  assert.equal(wordEntries.length, 60);
+  assert.match(data, /image: item\.image \?\? null/);
+  assert.match(data, /type: item\.type \?\? "emoji"/);
+  assert.match(data, /type: "color"/);
+  assert.match(page, /type Section = "sentences" \| "dialogues" \| "words"/);
+  assert.match(wordsModule, /window\.speechSynthesis\.cancel\(\)/);
+  assert.match(wordsModule, /utterance\.lang = "en-US"/);
+  assert.match(wordsModule, /onClick=\{\(\) => speakWord\(currentWord\.word/);
+  assert.match(wordsModule, /wordIndex === category\.words\.length - 1/);
+  assert.match(wordsModule, /setView\("complete"\)/);
+  assert.match(wordsModule, /返回单词分类/);
+});
+
+test("keeps the words experience responsive and touch friendly", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(css, /\.category-grid\s*\{[^}]*grid-template-columns: repeat\(3,/s);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.category-grid\s*\{[^}]*repeat\(2,/);
+  assert.match(css, /@media \(max-width: 420px\)/);
+  assert.match(css, /\.word-learning\s*\{[^}]*width: min\(700px, 100%\)/s);
+  assert.match(css, /\.word-visual\s*\{[^}]*width: min\(100%, 440px\)/s);
+  assert.match(css, /\.word-navigation\s*\{[^}]*grid-template-columns: 1fr 1fr/s);
+  assert.match(css, /\.word-navigation button,[\s\S]*min-height: 54px/);
 });
 
 test("all generated page assets resolve below the GitHub Pages path", async () => {

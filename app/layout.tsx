@@ -8,7 +8,7 @@ const publicUrl = (path: string) => `${pagesBasePath}${path}`;
 
 export const metadata: Metadata = {
   title: "轻松英语 | 日常英语入门",
-  description: "适合英语初学者的日常句子与简单对话练习，支持浏览器英文朗读。",
+  description: "适合英语初学者的日常句子、简单对话与儿童单词练习，支持浏览器英文朗读。",
   applicationName: "轻松英语",
   manifest: publicUrl("/manifest.json"),
   formatDetection: {

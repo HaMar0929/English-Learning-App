@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import WordsModule from "./WordsModule";
 
 export const dynamic = "force-static";
 
-type Section = "sentences" | "dialogues";
+type Section = "sentences" | "dialogues" | "words";
 
 type Sentence = {
   english: string;
@@ -249,9 +250,21 @@ export default function Home() {
             <span className="tab-label">简单对话</span>
             <span className="tab-count">5 组</span>
           </button>
+          <button
+            type="button"
+            className={section === "words" ? "tab words-tab active" : "tab words-tab"}
+            onClick={() => selectSection("words")}
+            aria-pressed={section === "words"}
+          >
+            <span className="tab-icon" aria-hidden="true">🔤</span>
+            <span className="tab-label">单词学习 <small>Words</small></span>
+            <span className="tab-count">60 词</span>
+          </button>
         </nav>
 
-        {section === "sentences" ? (
+        {section === "words" ? (
+          <WordsModule />
+        ) : section === "sentences" ? (
           <section aria-labelledby="sentences-heading">
             <div className="section-heading">
               <div>

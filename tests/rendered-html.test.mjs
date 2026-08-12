@@ -36,6 +36,7 @@ test("provides all 12 word categories and 120 independently stored words", async
   const data = await readFile(new URL("../app/data/words.ts", import.meta.url), "utf8");
   const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const speech = await readFile(new URL("../app/speech.ts", import.meta.url), "utf8");
 
   const categoryMatches = [...data.matchAll(/id: "(animals|fruits|colors|family|things|body|numbers|food|vehicles|clothes|actions|feelings)"/g)];
   const categoryIds = categoryMatches.map((match) => match[1]);
@@ -97,8 +98,9 @@ test("provides all 12 word categories and 120 independently stored words", async
   assert.match(data, /type: item\.type \?\? "emoji"/);
   assert.match(data, /type: "color"/);
   assert.match(page, /type Section = "sentences" \| "dialogues" \| "words"/);
-  assert.match(wordsModule, /window\.speechSynthesis\.cancel\(\)/);
-  assert.match(wordsModule, /utterance\.lang = "en-US"/);
+  assert.match(wordsModule, /mode: "word"/);
+  assert.match(speech, /window\.speechSynthesis\.cancel\(\)/);
+  assert.match(speech, /utterance\.lang = voice\?\.lang \?\? "en-US"/);
   assert.match(wordsModule, /onClick=\{\(\) => speakWord\(currentWord\.word/);
   assert.match(wordsModule, /wordIndex === category\.words\.length - 1/);
   assert.match(wordsModule, /setView\("complete"\)/);
@@ -142,6 +144,7 @@ test("all generated page assets resolve below the GitHub Pages path", async () =
 
 test("includes the requested learning content and browser speech support", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const speech = await readFile(new URL("../app/speech.ts", import.meta.url), "utf8");
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 
   const sentenceScenes = page.match(/scene: "[^"]+"/g) ?? [];
@@ -151,9 +154,20 @@ test("includes the requested learning content and browser speech support", async
   assert.ok(sentenceScenes.length >= 15, "10 sentences and 5 dialogues each have a scene");
   assert.equal(dialogueTitles.length, 5);
   assert.equal(speakerButtons.length, 2, "reusable speech buttons cover sentence and dialogue lists");
-  assert.match(page, /SpeechSynthesisUtterance/);
-  assert.match(page, /speechSynthesis\.speak/);
-  assert.match(page, /utterance\.rate = 0\.82/);
+  assert.match(page, /mode: "natural"/);
+  assert.match(speech, /new SpeechSynthesisUtterance\(text\)/);
+  assert.match(speech, /speechSynthesis\s*\.getVoices\(\)/);
+  assert.match(speech, /addEventListener\("voiceschanged"/);
+  assert.match(speech, /language\.startsWith\("en-us"\)/);
+  assert.match(speech, /language\.startsWith\("en-gb"\)/);
+  assert.match(speech, /"samantha"/);
+  assert.match(speech, /"ava"/);
+  assert.match(speech, /"google us english"/);
+  assert.match(speech, /"female"/);
+  assert.match(speech, /utterance\.rate = mode === "word" \? 0\.8 : 0\.95/);
+  assert.match(speech, /utterance\.pitch = mode === "word" \? 1\.05 : 1/);
+  assert.match(speech, /utterance\.volume = 1/);
+  assert.match(speech, /speechSynthesis\.speak\(utterance\)/);
   assert.match(page, /serviceWorker\.register\(/);
   assert.match(page, /new URL\("sw\.js", appBaseUrl\)/);
   assert.match(page, /scope: appBaseUrl\.pathname/);

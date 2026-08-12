@@ -2,26 +2,16 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { wordCategories, type WordCategory, type WordItem } from "./data/words";
+import { speakEnglish, stopSpeech as cancelSpeech } from "./speech";
 
 type WordsView = "categories" | "learning" | "complete";
 
 function speakWord(word: string, onSpeakingChange: (speaking: boolean) => void) {
-  if (!("speechSynthesis" in window)) return;
-
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(word);
-  const englishVoice = window.speechSynthesis
-    .getVoices()
-    .find((voice) => voice.lang.toLowerCase().startsWith("en"));
-
-  utterance.lang = "en-US";
-  utterance.voice = englishVoice ?? null;
-  utterance.rate = 0.82;
-  utterance.pitch = 1;
-  utterance.onstart = () => onSpeakingChange(true);
-  utterance.onend = () => onSpeakingChange(false);
-  utterance.onerror = () => onSpeakingChange(false);
-  window.speechSynthesis.speak(utterance);
+  speakEnglish(word, {
+    mode: "word",
+    onStart: () => onSpeakingChange(true),
+    onEnd: () => onSpeakingChange(false),
+  });
 }
 
 function WordVisual({ item }: { item: WordItem }) {
@@ -61,11 +51,11 @@ export default function WordsModule() {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   useEffect(() => {
-    return () => window.speechSynthesis?.cancel();
+    return () => cancelSpeech();
   }, []);
 
   function stopSpeech() {
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
     setIsSpeaking(false);
   }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import WordsModule from "./WordsModule";
+import { prepareEnglishVoices, speakEnglish, stopSpeech } from "./speech";
 
 export const dynamic = "force-static";
 
@@ -133,22 +134,11 @@ function SpeakerButton({ text }: { text: string }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   function speak() {
-    if (!("speechSynthesis" in window)) return;
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    const englishVoice = window.speechSynthesis
-      .getVoices()
-      .find((voice) => voice.lang.toLowerCase().startsWith("en"));
-
-    utterance.lang = englishVoice?.lang ?? "en-US";
-    utterance.voice = englishVoice ?? null;
-    utterance.rate = 0.82;
-    utterance.pitch = 1;
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
+    speakEnglish(text, {
+      mode: "natural",
+      onStart: () => setIsSpeaking(true),
+      onEnd: () => setIsSpeaking(false),
+    });
   }
 
   return (
@@ -169,6 +159,8 @@ function SpeakerButton({ text }: { text: string }) {
 
 export default function Home() {
   const [section, setSection] = useState<Section>("sentences");
+
+  useEffect(() => prepareEnglishVoices(), []);
 
   useEffect(() => {
     if (
@@ -213,7 +205,7 @@ export default function Home() {
   }, []);
 
   function selectSection(nextSection: Section) {
-    window.speechSynthesis?.cancel();
+    stopSpeech();
     setSection(nextSection);
   }
 

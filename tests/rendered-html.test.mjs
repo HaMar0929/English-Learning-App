@@ -132,41 +132,28 @@ test("provides all 12 word categories and 120 independently stored words", async
   assert.match(wordsModule, /返回单词分类/);
 });
 
-test("adds GitHub Pages-safe animal and fruit word images with full learning details", async () => {
+test("adds GitHub Pages-safe word images with full learning details", async () => {
   const data = await readFile(new URL("../app/data/words.ts", import.meta.url), "utf8");
   const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
-  const animalImagePaths = [...data.matchAll(/image: "(images\/words\/animals\/[a-z-]+\.webp)"/g)]
+  const expectedImages = {
+    animals: ["cat", "dog", "bird", "fish", "rabbit", "duck", "pig", "cow", "horse", "monkey"],
+    fruits: ["apple", "banana", "orange", "grape", "pear", "peach", "watermelon", "strawberry", "lemon", "mango"],
+    family: ["mom", "dad", "mother", "father", "sister", "brother", "grandma", "grandpa", "baby", "family"],
+    food: ["rice", "bread", "egg", "milk", "water", "cake", "candy", "juice", "chicken", "noodles"],
+    vehicles: ["car", "bus", "train", "bike", "plane", "boat", "taxi", "truck", "subway", "ship"],
+    clothes: ["shirt", "t-shirt", "pants", "dress", "shoes", "socks", "hat", "coat", "skirt", "shorts"],
+    actions: ["run", "walk", "jump", "eat", "drink", "sleep", "sit", "stand", "read", "write"],
+  };
+  const imagePaths = [...data.matchAll(/image: "(images\/words\/[a-z-]+\/[a-z-]+\.webp)"/g)]
     .map((match) => match[1]);
-  const fruitImagePaths = [...data.matchAll(/image: "(images\/words\/fruits\/[a-z-]+\.webp)"/g)]
-    .map((match) => match[1]);
+  const expectedImagePaths = Object.entries(expectedImages).flatMap(([category, names]) =>
+    names.map((name) => `images/words/${category}/${name}.webp`),
+  );
 
-  assert.deepEqual(animalImagePaths, [
-    "images/words/animals/cat.webp",
-    "images/words/animals/dog.webp",
-    "images/words/animals/bird.webp",
-    "images/words/animals/fish.webp",
-    "images/words/animals/rabbit.webp",
-    "images/words/animals/duck.webp",
-    "images/words/animals/pig.webp",
-    "images/words/animals/cow.webp",
-    "images/words/animals/horse.webp",
-    "images/words/animals/monkey.webp",
-  ]);
-  assert.deepEqual(fruitImagePaths, [
-    "images/words/fruits/apple.webp",
-    "images/words/fruits/banana.webp",
-    "images/words/fruits/orange.webp",
-    "images/words/fruits/grape.webp",
-    "images/words/fruits/pear.webp",
-    "images/words/fruits/peach.webp",
-    "images/words/fruits/watermelon.webp",
-    "images/words/fruits/strawberry.webp",
-    "images/words/fruits/lemon.webp",
-    "images/words/fruits/mango.webp",
-  ]);
-  assert.equal(data.match(/image: "images\/words\//g)?.length, 20);
+  assert.deepEqual(imagePaths, expectedImagePaths);
+  assert.equal(imagePaths.length, 70);
 
-  for (const imagePath of [...animalImagePaths, ...fruitImagePaths]) {
+  for (const imagePath of imagePaths) {
     assert.ok(!imagePath.startsWith("/"), `${imagePath} must be app-relative`);
     const publicImage = await readFile(new URL(`../public/${imagePath}`, import.meta.url));
     assert.equal(publicImage.subarray(0, 4).toString(), "RIFF");

@@ -135,7 +135,7 @@ button:focus-visible {
 }
 
 .tabs {
-  width: min(920px, 100%);
+  width: min(1120px, 100%);
   margin: 0 auto 46px;
   padding: 7px;
   display: flex;
@@ -147,7 +147,7 @@ button:focus-visible {
 }
 
 .tab {
-  min-width: 180px;
+  min-width: 0;
   flex: 1;
   min-height: 60px;
   padding: 10px 20px;
@@ -866,7 +866,7 @@ button:focus-visible {
   background: var(--green-soft);
 }
 
-/* Words V3.4 quiz */
+/* Words V3.4 quiz and V3.5 listening quiz */
 .quiz-module,
 .quiz-result {
   width: min(760px, 100%);
@@ -1048,6 +1048,141 @@ button:focus-visible {
   color: #7d8b86;
   background: #f5f6f5;
   box-shadow: 0 4px 0 #e2e5e3;
+}
+
+.listening-question-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.listening-question-prompt > span {
+  margin-bottom: 16px;
+  font-size: 1.7rem;
+}
+
+.listening-replay-button {
+  min-height: 54px;
+  margin-bottom: 20px;
+  padding: 10px 24px;
+  border: 2px solid #8ab8a7;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--green-dark);
+  font-size: 1rem;
+  font-weight: 850;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #d4e3dd;
+}
+
+.listening-replay-button:hover {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+.listening-image-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.listening-image-option {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 1;
+  overflow: hidden;
+  padding: 0;
+  border: 3px solid #c6d8d1;
+  border-radius: 22px;
+  background: #fffaf0;
+  cursor: pointer;
+  box-shadow: 0 5px 0 #d8e1dd;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.listening-image-option:hover:not(:disabled) {
+  border-color: var(--green);
+  transform: translateY(-2px);
+}
+
+.listening-image-option:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #d8e1dd;
+}
+
+.listening-image-option:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.listening-image-option img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.listening-image-option.correct-answer {
+  border-color: #25815f;
+  background: #dff4e9;
+  box-shadow: 0 5px 0 #9dcbb5;
+}
+
+.listening-image-option.selected-mistake {
+  border-color: #cf7777;
+  background: #fff0f0;
+  box-shadow: 0 5px 0 #ebc7c7;
+}
+
+.listening-image-option.muted-answer {
+  filter: saturate(0.55);
+  opacity: 0.72;
+}
+
+.listening-option-mark {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  font-size: 1.65rem;
+  box-shadow: 0 3px 10px rgba(34, 64, 55, 0.2);
+}
+
+.listening-feedback {
+  min-height: 190px;
+}
+
+.listening-answer-reveal {
+  margin: 8px 0 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.listening-answer-reveal strong {
+  color: var(--green-dark);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.listening-answer-reveal span {
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.listening-answer-reveal small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .quiz-feedback {
@@ -1412,6 +1547,17 @@ footer {
     height: min(54vw, 270px);
   }
 
+  .listening-image-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .listening-image-option:last-child:nth-child(odd) {
+    width: calc(50% - 6px);
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+
   .quiz-review-grid {
     grid-template-columns: 1fr;
   }
@@ -1512,6 +1658,19 @@ footer {
 
   .quiz-result-summary {
     padding: 40px 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .listening-image-options {
+    grid-template-columns: 1fr;
+  }
+
+  .listening-image-option,
+  .listening-image-option:last-child:nth-child(odd) {
+    width: min(220px, 100%);
+    grid-column: auto;
+    justify-self: center;
   }
 }
 

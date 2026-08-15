@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ListeningQuizModule from "./quiz/ListeningQuizModule";
 import QuizModule from "./quiz/QuizModule";
 import WordsModule from "./WordsModule";
 import { prepareEnglishVoices, speakEnglish, stopSpeech } from "./speech";
 
 export const dynamic = "force-static";
 
-type Section = "sentences" | "dialogues" | "words" | "quiz";
+type Section = "sentences" | "dialogues" | "words" | "quiz" | "listening";
 
 type Sentence = {
   english: string;
@@ -251,7 +252,7 @@ export default function Home() {
           >
             <span className="tab-icon" aria-hidden="true">🔤</span>
             <span className="tab-label">单词学习 <small>Words</small></span>
-            <span className="tab-count">120 词</span>
+            <span className="tab-count">160 词</span>
           </button>
           <button
             type="button"
@@ -263,9 +264,21 @@ export default function Home() {
             <span className="tab-label">单词小测验 <small>Quiz</small></span>
             <span className="tab-count">10 题</span>
           </button>
+          <button
+            type="button"
+            className={section === "listening" ? "tab listening-tab active" : "tab listening-tab"}
+            onClick={() => selectSection("listening")}
+            aria-pressed={section === "listening"}
+          >
+            <span className="tab-icon" aria-hidden="true">🔊</span>
+            <span className="tab-label">听音选图 <small>Listen</small></span>
+            <span className="tab-count">10 题</span>
+          </button>
         </nav>
 
-        {section === "quiz" ? (
+        {section === "listening" ? (
+          <ListeningQuizModule onReturnToLearning={() => selectSection("words")} />
+        ) : section === "quiz" ? (
           <QuizModule onReturnToLearning={() => selectSection("words")} />
         ) : section === "words" ? (
           <WordsModule />

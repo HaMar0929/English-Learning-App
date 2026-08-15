@@ -11,6 +11,12 @@ export type QuizQuestionData = {
   options: string[];
 };
 
+export type ListeningQuizQuestionData = {
+  id: string;
+  word: QuizWord;
+  options: QuizWord[];
+};
+
 export type QuizAnswerResult = {
   word: QuizWord;
   selectedAnswer: string;
@@ -70,6 +76,42 @@ export function createQuizRound(
         id: word.id,
         word,
         options: shuffle([word.word, ...wrongAnswers], random),
+      };
+    });
+}
+
+export function createListeningQuizRound(
+  sourceWords: readonly QuizWord[] = getImageQuizWords(),
+  random: RandomSource = Math.random,
+): ListeningQuizQuestionData[] {
+  const uniqueWords = [...new Map(sourceWords.map((word) => [word.id, word])).values()];
+
+  if (uniqueWords.length < QUIZ_LENGTH) {
+    throw new Error(`A listening quiz round needs at least ${QUIZ_LENGTH} image words.`);
+  }
+
+  if (uniqueWords.length < QUIZ_OPTION_COUNT) {
+    throw new Error(`A listening quiz question needs ${QUIZ_OPTION_COUNT} unique images.`);
+  }
+
+  return shuffle(uniqueWords, random)
+    .slice(0, QUIZ_LENGTH)
+    .map((word) => {
+      const distractors = shuffle(
+        uniqueWords.filter(
+          (candidate) => candidate.id !== word.id && candidate.image !== word.image,
+        ),
+        random,
+      ).slice(0, QUIZ_OPTION_COUNT - 1);
+
+      if (distractors.length < QUIZ_OPTION_COUNT - 1) {
+        throw new Error(`A listening quiz question needs ${QUIZ_OPTION_COUNT} unique images.`);
+      }
+
+      return {
+        id: word.id,
+        word,
+        options: shuffle([word, ...distractors], random),
       };
     });
 }

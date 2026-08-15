@@ -1,10 +1,40 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { access, readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
 
 const pagesBasePath = process.env.PAGES_BASE_PATH ?? "";
 const deployedUrl = (path) => `${pagesBasePath}${path}`;
+
+function getWebpDimensions(bytes) {
+  const vp8Index = bytes.indexOf(Buffer.from("VP8 "));
+  if (vp8Index >= 0) {
+    return {
+      width: bytes.readUInt16LE(vp8Index + 14) & 0x3fff,
+      height: bytes.readUInt16LE(vp8Index + 16) & 0x3fff,
+    };
+  }
+
+  const vp8lIndex = bytes.indexOf(Buffer.from("VP8L"));
+  if (vp8lIndex >= 0) {
+    const bits = bytes.readUInt32LE(vp8lIndex + 9);
+    return {
+      width: (bits & 0x3fff) + 1,
+      height: ((bits >> 14) & 0x3fff) + 1,
+    };
+  }
+
+  const vp8xIndex = bytes.indexOf(Buffer.from("VP8X"));
+  if (vp8xIndex >= 0) {
+    return {
+      width: bytes.readUIntLE(vp8xIndex + 12, 3) + 1,
+      height: bytes.readUIntLE(vp8xIndex + 15, 3) + 1,
+    };
+  }
+
+  throw new Error("Unsupported WebP encoding");
+}
 
 test("statically exports the English learning homepage", async () => {
   const html = await readFile(
@@ -18,6 +48,7 @@ test("statically exports the English learning homepage", async () => {
   assert.match(html, /简单对话/);
   assert.match(html, /单词学习/);
   assert.match(html, /单词小测验/);
+  assert.match(html, /听音选图/);
   assert.match(html, /Words/);
   assert.match(html, /Good morning!/);
   assert.match(html, /Have a nice day!/);
@@ -33,11 +64,12 @@ test("statically exports the English learning homepage", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
-test("provides all 12 word categories and 120 independently stored words", async () => {
+test("provides 160 words while preserving every field of the original 120", async () => {
   const data = await readFile(new URL("../app/data/words.ts", import.meta.url), "utf8");
   const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const speech = await readFile(new URL("../app/speech.ts", import.meta.url), "utf8");
+  const { allWords, wordCategories } = await import("../app/data/words.ts");
 
   const categoryMatches = [...data.matchAll(/id: "(animals|fruits|colors|family|things|body|numbers|food|vehicles|clothes|actions|feelings)"/g)];
   const categoryIds = categoryMatches.map((match) => match[1]);
@@ -60,57 +92,67 @@ test("provides all 12 word categories and 120 independently stored words", async
     "actions",
     "feelings",
   ]);
-  assert.equal(wordEntries.length, 120);
-  for (const [index, categoryMatch] of categoryMatches.entries()) {
-    const categorySource = data.slice(
-      categoryMatch.index,
-      categoryMatches[index + 1]?.index ?? data.indexOf("export const allWords"),
-    );
-    assert.equal(
-      categorySource.match(/\{ word: /g)?.length,
-      10,
-      `${categoryMatch[1]} must contain exactly 10 words`,
-    );
-  }
-  const generatedIds = [...data.matchAll(/\{ word: "([^"]+)", chinese: "([^"]+)", emoji: "[^"]*"/g)]
-    .map((match, index) => `${categoryMatches[Math.floor(index / 10)][1]}-${match[1]}`);
-  assert.equal(new Set(generatedIds).size, 120);
-  assert.equal(learningDetails.length, 120);
+  assert.equal(wordEntries.length, 160);
+  assert.equal(allWords.length, 160);
   assert.deepEqual(
-    learningDetails.map((match) => match[1]),
-    generatedIds,
-    "learning details must preserve every existing word ID and its order",
+    wordCategories.map((category) => [category.id, category.words.length]),
+    [
+      ["animals", 15], ["fruits", 15], ["colors", 10], ["family", 10],
+      ["things", 15], ["body", 15], ["numbers", 10], ["food", 15],
+      ["vehicles", 15], ["clothes", 15], ["actions", 15], ["feelings", 10],
+    ],
   );
-  for (const [index, detail] of learningDetails.entries()) {
+
+  const originalWords = wordCategories.flatMap((category) => category.words.slice(0, 10));
+  const originalWordsHash = createHash("sha256")
+    .update(JSON.stringify(originalWords))
+    .digest("hex");
+  assert.equal(originalWords.length, 120);
+  assert.equal(
+    originalWordsHash,
+    "fc7f10ea61ee6883f8a24ceb4cd835d6e9db44fb0e5be2bd97cca51f3a1db5a0",
+    "the original 120 word objects must remain byte-for-byte equivalent by field value and order",
+  );
+
+  const generatedIds = allWords.map((word) => word.id);
+  assert.equal(new Set(generatedIds).size, 160);
+  assert.equal(learningDetails.length, 160);
+  assert.deepEqual(
+    learningDetails.map((match) => match[1]).sort(),
+    [...generatedIds].sort(),
+    "learning details must cover every word ID",
+  );
+  for (const detail of learningDetails) {
     const [, id, phonetic, example, exampleCn] = detail;
-    const word = [...data.matchAll(/\{ word: "([^"]+)", chinese: "([^"]+)", emoji: "[^"]*"/g)][index][1];
+    const word = allWords.find((item) => item.id === id)?.word;
 
     assert.match(phonetic, /^\/.+\/$/, `${id} must have a phonetic transcription`);
     assert.ok(example.trim(), `${id} must have an English example`);
     assert.ok(exampleCn.trim(), `${id} must have a Chinese example translation`);
+    assert.ok(word, `${id} must resolve to a word`);
     assert.ok(
       example.toLowerCase().includes(word.toLowerCase()),
       `${id} example must contain its target word`,
     );
   }
-  const expectedV2Words = [
-    ["one", "一"], ["two", "二"], ["three", "三"], ["four", "四"], ["five", "五"],
-    ["six", "六"], ["seven", "七"], ["eight", "八"], ["nine", "九"], ["ten", "十"],
-    ["rice", "米饭"], ["bread", "面包"], ["egg", "鸡蛋"], ["milk", "牛奶"], ["water", "水"],
-    ["cake", "蛋糕"], ["candy", "糖果"], ["juice", "果汁"], ["chicken", "鸡肉"], ["noodles", "面条"],
-    ["car", "汽车"], ["bus", "公交车"], ["train", "火车"], ["bike", "自行车"], ["plane", "飞机"],
-    ["boat", "小船"], ["taxi", "出租车"], ["truck", "卡车"], ["subway", "地铁"], ["ship", "轮船"],
-    ["shirt", "衬衫"], ["T-shirt", "T恤"], ["pants", "裤子"], ["dress", "连衣裙"], ["shoes", "鞋"],
-    ["socks", "袜子"], ["hat", "帽子"], ["coat", "外套"], ["skirt", "裙子"], ["shorts", "短裤"],
-    ["run", "跑"], ["walk", "走"], ["jump", "跳"], ["eat", "吃"], ["drink", "喝"],
-    ["sleep", "睡觉"], ["sit", "坐"], ["stand", "站"], ["read", "阅读"], ["write", "写"],
-    ["happy", "开心"], ["sad", "难过"], ["angry", "生气"], ["tired", "累"], ["hungry", "饿"],
-    ["thirsty", "渴"], ["scared", "害怕"], ["excited", "兴奋"], ["sleepy", "困"], ["good", "很好"],
-  ];
-  const actualV2Words = [...data.matchAll(/\{ word: "([^"]+)", chinese: "([^"]+)", emoji: "[^"]*"/g)]
-    .slice(60)
-    .map((match) => [match[1], match[2]]);
-  assert.deepEqual(actualV2Words, expectedV2Words);
+  const expectedNewWords = {
+    animals: ["lion", "elephant", "bear", "frog", "turtle"],
+    fruits: ["pineapple", "cherry", "kiwi", "coconut", "blueberry"],
+    things: ["spoon", "toothbrush", "umbrella", "clock", "doll"],
+    body: ["tooth", "finger", "knee", "shoulder", "tongue"],
+    food: ["cheese", "soup", "pizza", "cookie", "carrot"],
+    vehicles: ["scooter", "helicopter", "motorcycle", "tractor", "rocket"],
+    clothes: ["scarf", "gloves", "boots", "pajamas", "sweater"],
+    actions: ["swim", "dance", "clap", "sing", "cook"],
+  };
+  assert.deepEqual(
+    Object.fromEntries(
+      wordCategories
+        .filter((category) => category.words.length === 15)
+        .map((category) => [category.id, category.words.slice(10).map((word) => word.word)]),
+    ),
+    expectedNewWords,
+  );
   assert.match(data, /word: "T-shirt", chinese: "T恤"/);
   assert.match(data, /word: "water", chinese: "水"/);
   assert.match(data, /word: "subway", chinese: "地铁"/);
@@ -123,7 +165,7 @@ test("provides all 12 word categories and 120 independently stored words", async
   assert.match(data, /image: item\.image \?\? null/);
   assert.match(data, /type: item\.type \?\? "emoji"/);
   assert.match(data, /type: "color"/);
-  assert.match(page, /type Section = "sentences" \| "dialogues" \| "words" \| "quiz"/);
+  assert.match(page, /type Section = "sentences" \| "dialogues" \| "words" \| "quiz" \| "listening"/);
   assert.match(wordsModule, /mode: "word"/);
   assert.match(speech, /window\.speechSynthesis\.cancel\(\)/);
   assert.match(speech, /utterance\.lang = voice\?\.lang \?\? "en-US"/);
@@ -137,13 +179,15 @@ test("adds GitHub Pages-safe word images with full learning details", async () =
   const data = await readFile(new URL("../app/data/words.ts", import.meta.url), "utf8");
   const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
   const expectedImages = {
-    animals: ["cat", "dog", "bird", "fish", "rabbit", "duck", "pig", "cow", "horse", "monkey"],
-    fruits: ["apple", "banana", "orange", "grape", "pear", "peach", "watermelon", "strawberry", "lemon", "mango"],
+    animals: ["cat", "dog", "bird", "fish", "rabbit", "duck", "pig", "cow", "horse", "monkey", "lion", "elephant", "bear", "frog", "turtle"],
+    fruits: ["apple", "banana", "orange", "grape", "pear", "peach", "watermelon", "strawberry", "lemon", "mango", "pineapple", "cherry", "kiwi", "coconut", "blueberry"],
     family: ["mom", "dad", "mother", "father", "sister", "brother", "grandma", "grandpa", "baby", "family"],
-    food: ["rice", "bread", "egg", "milk", "water", "cake", "candy", "juice", "chicken", "noodles"],
-    vehicles: ["car", "bus", "train", "bike", "plane", "boat", "taxi", "truck", "subway", "ship"],
-    clothes: ["shirt", "t-shirt", "pants", "dress", "shoes", "socks", "hat", "coat", "skirt", "shorts"],
-    actions: ["run", "walk", "jump", "eat", "drink", "sleep", "sit", "stand", "read", "write"],
+    things: ["spoon", "toothbrush", "umbrella", "clock", "doll"],
+    body: ["tooth", "finger", "knee", "shoulder", "tongue"],
+    food: ["rice", "bread", "egg", "milk", "water", "cake", "candy", "juice", "chicken", "noodles", "cheese", "soup", "pizza", "cookie", "carrot"],
+    vehicles: ["car", "bus", "train", "bike", "plane", "boat", "taxi", "truck", "subway", "ship", "scooter", "helicopter", "motorcycle", "tractor", "rocket"],
+    clothes: ["shirt", "t-shirt", "pants", "dress", "shoes", "socks", "hat", "coat", "skirt", "shorts", "scarf", "gloves", "boots", "pajamas", "sweater"],
+    actions: ["run", "walk", "jump", "eat", "drink", "sleep", "sit", "stand", "read", "write", "swim", "dance", "clap", "sing", "cook"],
   };
   const imagePaths = [...data.matchAll(/image: "(images\/words\/[a-z-]+\/[a-z-]+\.webp)"/g)]
     .map((match) => match[1]);
@@ -152,12 +196,13 @@ test("adds GitHub Pages-safe word images with full learning details", async () =
   );
 
   assert.deepEqual(imagePaths, expectedImagePaths);
-  assert.equal(imagePaths.length, 70);
+  assert.equal(imagePaths.length, 110);
 
   for (const imagePath of imagePaths) {
     assert.ok(!imagePath.startsWith("/"), `${imagePath} must be app-relative`);
     const publicImage = await readFile(new URL(`../public/${imagePath}`, import.meta.url));
     assert.equal(publicImage.subarray(0, 4).toString(), "RIFF");
+    assert.deepEqual(getWebpDimensions(publicImage), { width: 640, height: 640 });
     assert.ok(publicImage.byteLength < 100_000, `${imagePath} must stay below 100 KB`);
     await access(new URL(`../dist/client/${imagePath}`, import.meta.url));
   }
@@ -192,7 +237,7 @@ test("builds 10-question image quizzes with three unique randomized answers", as
   const firstRound = createQuizRound(imageWords, seededRandom(34));
   const secondRound = createQuizRound(imageWords, seededRandom(91));
 
-  assert.equal(imageWords.length, 70);
+  assert.equal(imageWords.length, 110);
   assert.equal(firstRound.length, QUIZ_LENGTH);
   assert.equal(new Set(firstRound.map((question) => question.id)).size, QUIZ_LENGTH);
   assert.notDeepEqual(
@@ -214,6 +259,51 @@ test("builds 10-question image quizzes with three unique randomized answers", as
     )
       .flat()
       .map((question) => question.options.indexOf(question.word.word)),
+  );
+  assert.deepEqual([...correctPositions].sort(), [0, 1, 2]);
+});
+
+test("builds 10-question listening quizzes with three distinct randomized images", async () => {
+  const {
+    QUIZ_LENGTH,
+    QUIZ_OPTION_COUNT,
+    createListeningQuizRound,
+    getImageQuizWords,
+  } = await import("../app/quiz/quiz-logic.ts");
+
+  const seededRandom = (seed) => {
+    let state = seed >>> 0;
+    return () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 2 ** 32;
+    };
+  };
+
+  const imageWords = getImageQuizWords();
+  const firstRound = createListeningQuizRound(imageWords, seededRandom(35));
+  const secondRound = createListeningQuizRound(imageWords, seededRandom(92));
+
+  assert.equal(firstRound.length, QUIZ_LENGTH);
+  assert.equal(new Set(firstRound.map((question) => question.id)).size, QUIZ_LENGTH);
+  assert.notDeepEqual(
+    firstRound.map((question) => question.id),
+    secondRound.map((question) => question.id),
+    "a restarted listening quiz must be able to generate a new question order",
+  );
+
+  for (const question of firstRound) {
+    assert.equal(question.options.length, QUIZ_OPTION_COUNT);
+    assert.equal(new Set(question.options.map((option) => option.id)).size, QUIZ_OPTION_COUNT);
+    assert.equal(new Set(question.options.map((option) => option.image)).size, QUIZ_OPTION_COUNT);
+    assert.ok(question.options.some((option) => option.id === question.word.id));
+  }
+
+  const correctPositions = new Set(
+    Array.from({ length: 12 }, (_, seed) =>
+      createListeningQuizRound(imageWords, seededRandom(seed + 101)),
+    )
+      .flat()
+      .map((question) => question.options.findIndex((option) => option.id === question.word.id)),
   );
   assert.deepEqual([...correctPositions].sort(), [0, 1, 2]);
 });
@@ -245,11 +335,15 @@ test("includes the complete quiz flow in the GitHub Pages client build", async (
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const quizModule = await readFile(new URL("../app/quiz/QuizModule.tsx", import.meta.url), "utf8");
   const quizQuestion = await readFile(new URL("../app/quiz/QuizQuestion.tsx", import.meta.url), "utf8");
+  const listeningQuizModule = await readFile(new URL("../app/quiz/ListeningQuizModule.tsx", import.meta.url), "utf8");
+  const listeningQuizQuestion = await readFile(new URL("../app/quiz/ListeningQuizQuestion.tsx", import.meta.url), "utf8");
   const quizResult = await readFile(new URL("../app/quiz/QuizResult.tsx", import.meta.url), "utf8");
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 
   assert.match(page, /单词小测验/);
   assert.match(page, /<QuizModule onReturnToLearning=/);
+  assert.match(page, /听音选图/);
+  assert.match(page, /<ListeningQuizModule onReturnToLearning=/);
   assert.match(quizModule, /createQuizRound\(\)/);
   assert.match(quizModule, /speakEnglish\(word, \{ mode: "word" \}\)/);
   assert.match(quizModule, /setTimeout\(goToNextQuestion, 1100\)/);
@@ -258,7 +352,20 @@ test("includes the complete quiz flow in the GitHub Pages client build", async (
   assert.match(quizResult, /本轮完成！/);
   assert.match(quizResult, /这几个再看看/);
   assert.match(quizResult, /返回学习/);
+  assert.match(listeningQuizModule, /createListeningQuizRound\(\)/);
+  assert.match(listeningQuizModule, /setTimeout\(goToNextQuestion, 1300\)/);
+  assert.match(listeningQuizModule, /speakEnglish\(word, \{ mode: "word" \}\)/);
+  assert.match(listeningQuizQuestion, /听一听，选出正确图片/);
+  assert.match(listeningQuizQuestion, /alt=""/);
+  assert.doesNotMatch(listeningQuizQuestion, /answer\.word\}/);
+  assert.doesNotMatch(
+    `${listeningQuizModule}\n${listeningQuizQuestion}`,
+    /\bfetch\s*\(|\baxios\b|https?:\/\//,
+    "listening quiz must not add a runtime network API dependency",
+  );
   assert.match(css, /\.quiz-answer-button\s*\{[^}]*min-height: 68px/s);
+  assert.match(css, /\.listening-image-options\s*\{[^}]*grid-template-columns: repeat\(3,/s);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.listening-image-options\s*\{[^}]*grid-template-columns: repeat\(2,/s);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.quiz-review-grid\s*\{[^}]*grid-template-columns: 1fr/s);
 
   const clientFiles = await readdir(new URL("../dist/client", import.meta.url), {
@@ -274,6 +381,7 @@ test("includes the complete quiz flow in the GitHub Pages client build", async (
 
   assert.match(clientJavaScript, /本轮完成！/);
   assert.match(clientJavaScript, /再听一次/);
+  assert.match(clientJavaScript, /听一听，选出正确图片/);
   assert.match(clientJavaScript, /这几个再看看/);
 });
 

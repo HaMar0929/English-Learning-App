@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
 
@@ -17,6 +17,7 @@ test("statically exports the English learning homepage", async () => {
   assert.match(html, /英语句子/);
   assert.match(html, /简单对话/);
   assert.match(html, /单词学习/);
+  assert.match(html, /单词小测验/);
   assert.match(html, /Words/);
   assert.match(html, /Good morning!/);
   assert.match(html, /Have a nice day!/);
@@ -122,7 +123,7 @@ test("provides all 12 word categories and 120 independently stored words", async
   assert.match(data, /image: item\.image \?\? null/);
   assert.match(data, /type: item\.type \?\? "emoji"/);
   assert.match(data, /type: "color"/);
-  assert.match(page, /type Section = "sentences" \| "dialogues" \| "words"/);
+  assert.match(page, /type Section = "sentences" \| "dialogues" \| "words" \| "quiz"/);
   assert.match(wordsModule, /mode: "word"/);
   assert.match(speech, /window\.speechSynthesis\.cancel\(\)/);
   assert.match(speech, /utterance\.lang = voice\?\.lang \?\? "en-US"/);
@@ -169,6 +170,111 @@ test("adds GitHub Pages-safe word images with full learning details", async () =
   );
   assert.match(wordsModule, /toggleCurrentWordState\("favorite"\)/);
   assert.match(wordsModule, /toggleCurrentWordState\("mastered"\)/);
+});
+
+test("builds 10-question image quizzes with three unique randomized answers", async () => {
+  const {
+    QUIZ_LENGTH,
+    QUIZ_OPTION_COUNT,
+    createQuizRound,
+    getImageQuizWords,
+  } = await import("../app/quiz/quiz-logic.ts");
+
+  const seededRandom = (seed) => {
+    let state = seed >>> 0;
+    return () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 2 ** 32;
+    };
+  };
+
+  const imageWords = getImageQuizWords();
+  const firstRound = createQuizRound(imageWords, seededRandom(34));
+  const secondRound = createQuizRound(imageWords, seededRandom(91));
+
+  assert.equal(imageWords.length, 70);
+  assert.equal(firstRound.length, QUIZ_LENGTH);
+  assert.equal(new Set(firstRound.map((question) => question.id)).size, QUIZ_LENGTH);
+  assert.notDeepEqual(
+    firstRound.map((question) => question.id),
+    secondRound.map((question) => question.id),
+    "a restarted quiz must be able to generate a new question order",
+  );
+
+  for (const question of firstRound) {
+    assert.equal(question.options.length, QUIZ_OPTION_COUNT);
+    assert.equal(new Set(question.options).size, QUIZ_OPTION_COUNT);
+    assert.ok(question.options.includes(question.word.word));
+    assert.ok(question.word.image);
+  }
+
+  const correctPositions = new Set(
+    Array.from({ length: 12 }, (_, seed) =>
+      createQuizRound(imageWords, seededRandom(seed + 1)),
+    )
+      .flat()
+      .map((question) => question.options.indexOf(question.word.word)),
+  );
+  assert.deepEqual([...correctPositions].sort(), [0, 1, 2]);
+});
+
+test("counts quiz results and keeps the child-friendly score messages exact", async () => {
+  const {
+    QUIZ_LENGTH,
+    countCorrectAnswers,
+    createQuizRound,
+    getQuizEncouragement,
+  } = await import("../app/quiz/quiz-logic.ts");
+
+  const round = createQuizRound();
+  const results = round.map((question, index) => ({
+    word: question.word,
+    selectedAnswer: index < 8 ? question.word.word : question.options.find((answer) => answer !== question.word.word),
+    correct: index < 8,
+  }));
+
+  assert.equal(results.length, QUIZ_LENGTH);
+  assert.equal(countCorrectAnswers(results), 8);
+  assert.equal(getQuizEncouragement(10), "太棒啦！🌟");
+  assert.equal(getQuizEncouragement(8), "真厉害！👏");
+  assert.equal(getQuizEncouragement(5), "继续加油！💪");
+  assert.equal(getQuizEncouragement(4), "再玩一次吧！😊");
+});
+
+test("includes the complete quiz flow in the GitHub Pages client build", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const quizModule = await readFile(new URL("../app/quiz/QuizModule.tsx", import.meta.url), "utf8");
+  const quizQuestion = await readFile(new URL("../app/quiz/QuizQuestion.tsx", import.meta.url), "utf8");
+  const quizResult = await readFile(new URL("../app/quiz/QuizResult.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(page, /单词小测验/);
+  assert.match(page, /<QuizModule onReturnToLearning=/);
+  assert.match(quizModule, /createQuizRound\(\)/);
+  assert.match(quizModule, /speakEnglish\(word, \{ mode: "word" \}\)/);
+  assert.match(quizModule, /setTimeout\(goToNextQuestion, 1100\)/);
+  assert.match(quizQuestion, /答对啦！/);
+  assert.match(quizQuestion, /🔊 再听一次/);
+  assert.match(quizResult, /本轮完成！/);
+  assert.match(quizResult, /这几个再看看/);
+  assert.match(quizResult, /返回学习/);
+  assert.match(css, /\.quiz-answer-button\s*\{[^}]*min-height: 68px/s);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.quiz-review-grid\s*\{[^}]*grid-template-columns: 1fr/s);
+
+  const clientFiles = await readdir(new URL("../dist/client", import.meta.url), {
+    recursive: true,
+  });
+  const clientJavaScript = (
+    await Promise.all(
+      clientFiles
+        .filter((file) => file.endsWith(".js"))
+        .map((file) => readFile(new URL(`../dist/client/${file}`, import.meta.url), "utf8")),
+    )
+  ).join("\n");
+
+  assert.match(clientJavaScript, /本轮完成！/);
+  assert.match(clientJavaScript, /再听一次/);
+  assert.match(clientJavaScript, /这几个再看看/);
 });
 
 test("persists word progress safely after client hydration", async () => {

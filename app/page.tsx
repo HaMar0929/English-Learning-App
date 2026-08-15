@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import QuizModule from "./quiz/QuizModule";
 import WordsModule from "./WordsModule";
 import { prepareEnglishVoices, speakEnglish, stopSpeech } from "./speech";
 
 export const dynamic = "force-static";
 
-type Section = "sentences" | "dialogues" | "words";
+type Section = "sentences" | "dialogues" | "words" | "quiz";
 
 type Sentence = {
   english: string;
@@ -252,9 +253,21 @@ export default function Home() {
             <span className="tab-label">单词学习 <small>Words</small></span>
             <span className="tab-count">120 词</span>
           </button>
+          <button
+            type="button"
+            className={section === "quiz" ? "tab quiz-tab active" : "tab quiz-tab"}
+            onClick={() => selectSection("quiz")}
+            aria-pressed={section === "quiz"}
+          >
+            <span className="tab-icon" aria-hidden="true">🎯</span>
+            <span className="tab-label">单词小测验 <small>Quiz</small></span>
+            <span className="tab-count">10 题</span>
+          </button>
         </nav>
 
-        {section === "words" ? (
+        {section === "quiz" ? (
+          <QuizModule onReturnToLearning={() => selectSection("words")} />
+        ) : section === "words" ? (
           <WordsModule />
         ) : section === "sentences" ? (
           <section aria-labelledby="sentences-heading">

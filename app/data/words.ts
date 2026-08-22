@@ -307,7 +307,7 @@ export const wordCategories: WordCategory[] = [
       { word: "dad", chinese: "爸爸", emoji: "👨", image: "images/words/family/dad.webp" },
       { word: "mother", chinese: "母亲", emoji: "👩", image: "images/words/family/mother.webp" },
       { word: "father", chinese: "父亲", emoji: "👨", image: "images/words/family/father.webp" },
-      { word: "sister", chinese: "姐姐 / 妹妹", emoji: "👧", image: "images/words/family/sister.webp" },
+      { word: "sister", chinese: "姐姐或妹妹", emoji: "👧", image: "images/words/family/sister.webp" },
       { word: "brother", chinese: "哥哥 / 弟弟", emoji: "👦", image: "images/words/family/brother.webp" },
       { word: "grandma", chinese: "奶奶 / 外婆", emoji: "👵", image: "images/words/family/grandma.webp" },
       { word: "grandpa", chinese: "爷爷 / 外公", emoji: "👴", image: "images/words/family/grandpa.webp" },

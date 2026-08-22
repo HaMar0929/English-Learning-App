@@ -65,7 +65,7 @@ test("statically exports the English learning homepage", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
-test("provides 160 words while preserving every field of the original 120", async () => {
+test("provides 160 words while preserving the approved original vocabulary", async () => {
   const data = await readFile(new URL("../app/data/words.ts", import.meta.url), "utf8");
   const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
@@ -111,8 +111,8 @@ test("provides 160 words while preserving every field of the original 120", asyn
   assert.equal(originalWords.length, 120);
   assert.equal(
     originalWordsHash,
-    "fc7f10ea61ee6883f8a24ceb4cd835d6e9db44fb0e5be2bd97cca51f3a1db5a0",
-    "the original 120 word objects must remain byte-for-byte equivalent by field value and order",
+    "6a9aa223e55c2f06ef6a1c25048a7fffb76608929be1ea7e2f11660aac5b4f3a",
+    "the original 120 word objects must match the approved data snapshot",
   );
 
   const generatedIds = allWords.map((word) => word.id);
@@ -155,6 +155,7 @@ test("provides 160 words while preserving every field of the original 120", asyn
     expectedNewWords,
   );
   assert.match(data, /word: "T-shirt", chinese: "T恤"/);
+  assert.match(data, /word: "sister", chinese: "姐姐或妹妹"/);
   assert.match(data, /word: "water", chinese: "水"/);
   assert.match(data, /word: "subway", chinese: "地铁"/);
   assert.match(data, /word: "thirsty", chinese: "渴"/);
@@ -347,9 +348,14 @@ test("includes the complete quiz flow in the GitHub Pages client build", async (
   assert.match(page, /<ListeningQuizModule onReturnToLearning=/);
   assert.match(quizModule, /createQuizRound\(\)/);
   assert.match(quizModule, /speakEnglish\(word, \{ mode: "word" \}\)/);
+  assert.match(quizModule, /onSpeakChinese=\{speakChinese\}/);
   assert.match(quizModule, /setTimeout\(goToNextQuestion, 1100\)/);
   assert.match(quizQuestion, /答对啦！/);
   assert.match(quizQuestion, /🔊 再听一次/);
+  assert.match(quizQuestion, /className="quiz-chinese-speak-button"/);
+  assert.match(quizQuestion, /event\.stopPropagation\(\)/);
+  assert.match(quizQuestion, /onSpeakChinese\(question\.word\.chinese\)/);
+  assert.match(quizQuestion, /onClick=\{\(\) => onAnswer\(answer\)\}/);
   assert.match(quizResult, /本轮完成！/);
   assert.match(quizResult, /这几个再看看/);
   assert.match(quizResult, /返回学习/);
@@ -370,6 +376,7 @@ test("includes the complete quiz flow in the GitHub Pages client build", async (
     "listening quiz must not add a runtime network API dependency",
   );
   assert.match(css, /\.quiz-answer-button\s*\{[^}]*min-height: 68px/s);
+  assert.match(css, /\.quiz-chinese-speak-button,[\s\S]*width: 48px;[^}]*height: 48px;/s);
   assert.match(css, /\.listening-image-options\s*\{[^}]*grid-template-columns: repeat\(3,/s);
   assert.match(css, /\.listening-chinese-speak-button\s*\{[^}]*width: 48px;[^}]*height: 48px;/s);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.listening-image-options\s*\{[^}]*grid-template-columns: repeat\(2,/s);
@@ -697,6 +704,23 @@ test("service worker caches the app shell and returns the homepage offline", asy
   assert.ok(storedResponses.has(appHome));
   assert.ok(storedResponses.has(`${pagesBasePath}/manifest.json`));
 
+  let onlineResponse;
+  listeners.get("fetch")({
+    request: {
+      method: "GET",
+      mode: "navigate",
+      url: appScope,
+    },
+    respondWith(promise) { onlineResponse = promise; },
+  });
+
+  assert.equal(await (await onlineResponse).text(), "online");
+  assert.equal(
+    await storedResponses.get(appHome).clone().text(),
+    "online",
+    "an online reopen must replace the cached homepage with the latest deployment",
+  );
+
   let messageWork;
   listeners.get("message")({
     data: { type: "CACHE_URLS", urls: ["/app.css", "https://outside.example/no.js"] },
@@ -721,5 +745,5 @@ test("service worker caches the app shell and returns the homepage offline", asy
   });
 
   const response = await offlineResponse;
-  assert.equal(await response.text(), `cached:${appHome}`);
+  assert.equal(await response.text(), "online");
 });

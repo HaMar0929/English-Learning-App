@@ -4,6 +4,7 @@ type QuizQuestionProps = {
   question: QuizQuestionData;
   selectedAnswer: string | null;
   onAnswer: (answer: string) => void;
+  onSpeakChinese: (chinese: string) => void;
   onReplay: () => void;
   onContinue: () => void;
   isLastQuestion: boolean;
@@ -24,6 +25,7 @@ export default function QuizQuestion({
   question,
   selectedAnswer,
   onAnswer,
+  onSpeakChinese,
   onReplay,
   onContinue,
   isLastQuestion,
@@ -44,6 +46,17 @@ export default function QuizQuestion({
           height="640"
           decoding="async"
         />
+        <button
+          className="quiz-chinese-speak-button"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onSpeakChinese(question.word.chinese);
+          }}
+          aria-label={`播放中文：${question.word.chinese}`}
+        >
+          <span aria-hidden="true">🔊</span>
+        </button>
       </div>
 
       <div className="quiz-answers" aria-label="请选择英文答案">

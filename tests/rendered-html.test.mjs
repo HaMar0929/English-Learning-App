@@ -96,6 +96,17 @@ test("provides 160 words while preserving the approved original vocabulary", asy
   assert.equal(wordEntries.length, 160);
   assert.equal(allWords.length, 160);
   assert.deepEqual(
+    allWords
+      .filter((word) => word.chinese.includes("/"))
+      .map((word) => [word.word, word.chinese]),
+    [
+      ["brother", "哥哥 / 弟弟"],
+      ["grandma", "奶奶 / 外婆"],
+      ["grandpa", "爷爷 / 外公"],
+    ],
+    "slash-separated Chinese display text must remain unchanged in the word data",
+  );
+  assert.deepEqual(
     wordCategories.map((category) => [category.id, category.words.length]),
     [
       ["animals", 15], ["fruits", 15], ["colors", 10], ["family", 10],
@@ -591,13 +602,19 @@ test("speaks Chinese with a zh-CN voice and falls back safely", async () => {
     assert.equal(spoken[1].lang, "zh-CN");
     assert.equal(spoken[1].voice.name, "Microsoft Xiaoxiao");
 
+    speakChinese("哥哥/弟弟");
+    speakChinese("奶奶 / 外婆");
+
+    assert.equal(spoken[2].text, "哥哥或弟弟");
+    assert.equal(spoken[3].text, "奶奶或外婆");
+
     voices = [{ lang: "en-US", name: "Samantha" }];
     speakChinese("香蕉");
 
-    assert.equal(spoken[2].text, "香蕉");
-    assert.equal(spoken[2].lang, "zh-CN");
-    assert.equal(spoken[2].voice, null);
-    assert.equal(cancelCount, 3, "every new utterance cancels unfinished speech first");
+    assert.equal(spoken[4].text, "香蕉");
+    assert.equal(spoken[4].lang, "zh-CN");
+    assert.equal(spoken[4].voice, null);
+    assert.equal(cancelCount, 5, "every new utterance cancels unfinished speech first");
   } finally {
     stopWatchingVoices();
     delete globalThis.window;

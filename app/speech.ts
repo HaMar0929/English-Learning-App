@@ -122,6 +122,10 @@ export function stopSpeech() {
   window.speechSynthesis?.cancel();
 }
 
+function normalizeChineseSpeechText(text: string) {
+  return text.replace(/\s*\/\s*/g, "或");
+}
+
 export function speakEnglish(text: string, { mode, onStart, onEnd }: SpeakOptions) {
   if (!("speechSynthesis" in window)) return;
 
@@ -150,7 +154,7 @@ export function speakChinese(text: string) {
   refreshChineseVoices();
   window.speechSynthesis.cancel();
 
-  const utterance = new SpeechSynthesisUtterance(text);
+  const utterance = new SpeechSynthesisUtterance(normalizeChineseSpeechText(text));
   const voice = chineseVoices[0] ?? null;
 
   utterance.lang = voice?.lang ?? "zh-CN";

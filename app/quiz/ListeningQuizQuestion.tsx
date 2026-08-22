@@ -4,6 +4,7 @@ type ListeningQuizQuestionProps = {
   question: ListeningQuizQuestionData;
   selectedAnswerId: string | null;
   onAnswer: (answer: QuizWord) => void;
+  onSpeakChinese: (chinese: string) => void;
   onReplay: () => void;
   onContinue: () => void;
   isLastQuestion: boolean;
@@ -24,6 +25,7 @@ export default function ListeningQuizQuestion({
   question,
   selectedAnswerId,
   onAnswer,
+  onSpeakChinese,
   onReplay,
   onContinue,
   isLastQuestion,
@@ -44,32 +46,44 @@ export default function ListeningQuizQuestion({
 
       <div className="listening-image-options" aria-label="请选择正确图片">
         {question.options.map((answer, index) => (
-          <button
-            className={imageOptionClassName(answer.id, correctAnswer.id, selectedAnswerId)}
-            type="button"
-            key={answer.id}
-            onClick={() => onAnswer(answer)}
-            disabled={selectedAnswerId !== null}
-            aria-label={`图片选项 ${index + 1}`}
-          >
-            {/* Answer text stays hidden until feedback is shown. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={answer.image}
-              alt=""
-              width="640"
-              height="640"
-              decoding="async"
-            />
-            {selectedAnswerId !== null && answer.id === correctAnswer.id && (
-              <span className="listening-option-mark" aria-hidden="true">✅</span>
-            )}
-            {selectedAnswerId !== null &&
-              answer.id === selectedAnswerId &&
-              answer.id !== correctAnswer.id && (
-                <span className="listening-option-mark" aria-hidden="true">❌</span>
+          <div className="listening-option-card" key={answer.id}>
+            <button
+              className={imageOptionClassName(answer.id, correctAnswer.id, selectedAnswerId)}
+              type="button"
+              onClick={() => onAnswer(answer)}
+              disabled={selectedAnswerId !== null}
+              aria-label={`图片选项 ${index + 1}`}
+            >
+              {/* Answer text stays hidden until feedback is shown. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={answer.image}
+                alt=""
+                width="640"
+                height="640"
+                decoding="async"
+              />
+              {selectedAnswerId !== null && answer.id === correctAnswer.id && (
+                <span className="listening-option-mark" aria-hidden="true">✅</span>
               )}
-          </button>
+              {selectedAnswerId !== null &&
+                answer.id === selectedAnswerId &&
+                answer.id !== correctAnswer.id && (
+                  <span className="listening-option-mark" aria-hidden="true">❌</span>
+                )}
+            </button>
+            <button
+              className="listening-chinese-speak-button"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSpeakChinese(answer.chinese);
+              }}
+              aria-label={`播放中文：${answer.chinese}`}
+            >
+              <span aria-hidden="true">🔊</span>
+            </button>
+          </div>
         ))}
       </div>
 

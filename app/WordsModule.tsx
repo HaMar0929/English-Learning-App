@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { wordCategories, type WordCategory, type WordItem } from "./data/words";
-import { speakEnglish, stopSpeech as cancelSpeech } from "./speech";
+import { speakChinese, speakEnglish, stopSpeech as cancelSpeech } from "./speech";
 import {
   getWordLearningState,
   loadWordProgress,
@@ -20,6 +20,14 @@ function speakWord(word: string, onSpeakingChange: (speaking: boolean) => void) 
     onStart: () => onSpeakingChange(true),
     onEnd: () => onSpeakingChange(false),
   });
+}
+
+function speakChineseWord(
+  chinese: string,
+  onSpeakingChange: (speaking: boolean) => void,
+) {
+  onSpeakingChange(false);
+  speakChinese(chinese);
 }
 
 function WordVisual({ item }: { item: WordItem }) {
@@ -200,9 +208,15 @@ export default function WordsModule() {
       </header>
 
       <article className="word-study-card">
-        <div className="word-visual" style={{ "--category-color": category.color } as CSSProperties}>
+        <button
+          className="word-visual"
+          type="button"
+          style={{ "--category-color": category.color } as CSSProperties}
+          onClick={() => speakChineseWord(currentWord.chinese, setIsSpeaking)}
+          aria-label={`播放中文：${currentWord.chinese}`}
+        >
           <WordVisual item={currentWord} />
-        </div>
+        </button>
         <button
           id="current-word"
           className="word-title-button"
@@ -214,7 +228,15 @@ export default function WordsModule() {
           <span aria-hidden="true">🔊</span>
         </button>
         <p className="word-phonetic">{currentWord.phonetic}</p>
-        <p className="word-chinese">{currentWord.chinese}</p>
+        <button
+          className="word-chinese"
+          type="button"
+          lang="zh-CN"
+          onClick={() => speakChineseWord(currentWord.chinese, setIsSpeaking)}
+          aria-label={`播放中文：${currentWord.chinese}`}
+        >
+          {currentWord.chinese}
+        </button>
         <div className="word-example">
           <p>{currentWord.example}</p>
           <p lang="zh-CN">{currentWord.exampleCn}</p>

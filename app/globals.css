@@ -586,6 +586,7 @@ button:focus-visible {
   --category-color: var(--green);
   width: min(100%, 440px);
   height: clamp(220px, 35vw, 310px);
+  padding: 0;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -594,6 +595,13 @@ button:focus-visible {
   background:
     radial-gradient(circle at 50% 47%, white 0 20%, transparent 51%),
     color-mix(in srgb, var(--category-color) 10%, white);
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.word-visual:hover {
+  border-color: color-mix(in srgb, var(--category-color) 48%, white);
 }
 
 .word-emoji {
@@ -658,9 +666,23 @@ button:focus-visible {
 
 .word-chinese {
   margin: 5px 0 0;
+  min-height: 44px;
+  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
   color: var(--green);
+  font-family: inherit;
   font-size: clamp(1.35rem, 4vw, 1.75rem);
   font-weight: 750;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.word-chinese:hover {
+  background: var(--green-soft);
 }
 
 .word-example {
@@ -866,7 +888,7 @@ button:focus-visible {
   background: var(--green-soft);
 }
 
-/* Words V3.4 quiz and V3.5 listening quiz */
+/* Words V3.4 quiz, V3.5 listening quiz, and V3.6 Chinese read-aloud */
 .quiz-module,
 .quiz-result {
   width: min(760px, 100%);
@@ -1087,10 +1109,17 @@ button:focus-visible {
   gap: 14px;
 }
 
-.listening-image-option {
+.listening-option-card {
   position: relative;
   min-width: 0;
   aspect-ratio: 1;
+}
+
+.listening-image-option {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   overflow: hidden;
   padding: 0;
   border: 3px solid #c6d8d1;
@@ -1138,6 +1167,31 @@ button:focus-visible {
 .listening-image-option.muted-answer {
   filter: saturate(0.55);
   opacity: 0.72;
+}
+
+.listening-chinese-speak-button {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 2px solid #8ab8a7;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--green-dark);
+  font-size: 1.25rem;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(34, 64, 55, 0.22);
+  touch-action: manipulation;
+}
+
+.listening-chinese-speak-button:hover {
+  border-color: var(--green);
+  background: var(--green-soft);
 }
 
 .listening-option-mark {
@@ -1552,7 +1606,7 @@ footer {
     gap: 12px;
   }
 
-  .listening-image-option:last-child:nth-child(odd) {
+  .listening-option-card:last-child:nth-child(odd) {
     width: calc(50% - 6px);
     grid-column: 1 / -1;
     justify-self: center;
@@ -1666,8 +1720,8 @@ footer {
     grid-template-columns: 1fr;
   }
 
-  .listening-image-option,
-  .listening-image-option:last-child:nth-child(odd) {
+  .listening-option-card,
+  .listening-option-card:last-child:nth-child(odd) {
     width: min(220px, 100%);
     grid-column: auto;
     justify-self: center;

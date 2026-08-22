@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { speakEnglish, stopSpeech } from "../speech";
+import { speakChinese, speakEnglish, stopSpeech } from "../speech";
 import ListeningQuizQuestion from "./ListeningQuizQuestion";
 import QuizProgress from "./QuizProgress";
 import QuizResult from "./QuizResult";
@@ -143,6 +143,7 @@ export default function ListeningQuizModule({ onReturnToLearning }: ListeningQui
         question={currentQuestion}
         selectedAnswerId={selectedAnswerId}
         onAnswer={answerQuestion}
+        onSpeakChinese={speakChinese}
         onReplay={() => playWord(currentQuestion.word.word)}
         onContinue={goToNextQuestion}
         isLastQuestion={questionIndex === questions.length - 1}

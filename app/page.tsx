@@ -346,7 +346,7 @@ export default function Home() {
         )}
 
         <footer>
-          <p>每天练习一点点，开口会越来越自然。</p>
+          <p>每天练习一点点，开口会越来越自然。 · V3.6</p>
         </footer>
       </div>
     </main>

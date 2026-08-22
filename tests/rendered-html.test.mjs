@@ -49,6 +49,7 @@ test("statically exports the English learning homepage", async () => {
   assert.match(html, /单词学习/);
   assert.match(html, /单词小测验/);
   assert.match(html, /听音选图/);
+  assert.match(html, /V3\.6/);
   assert.match(html, /Words/);
   assert.match(html, /Good morning!/);
   assert.match(html, /Have a nice day!/);
@@ -355,9 +356,14 @@ test("includes the complete quiz flow in the GitHub Pages client build", async (
   assert.match(listeningQuizModule, /createListeningQuizRound\(\)/);
   assert.match(listeningQuizModule, /setTimeout\(goToNextQuestion, 1300\)/);
   assert.match(listeningQuizModule, /speakEnglish\(word, \{ mode: "word" \}\)/);
+  assert.match(listeningQuizModule, /onSpeakChinese=\{speakChinese\}/);
   assert.match(listeningQuizQuestion, /听一听，选出正确图片/);
   assert.match(listeningQuizQuestion, /alt=""/);
   assert.doesNotMatch(listeningQuizQuestion, /answer\.word\}/);
+  assert.match(listeningQuizQuestion, /className="listening-option-card"/);
+  assert.match(listeningQuizQuestion, /className="listening-chinese-speak-button"/);
+  assert.match(listeningQuizQuestion, /event\.stopPropagation\(\)/);
+  assert.match(listeningQuizQuestion, /onSpeakChinese\(answer\.chinese\)/);
   assert.doesNotMatch(
     `${listeningQuizModule}\n${listeningQuizQuestion}`,
     /\bfetch\s*\(|\baxios\b|https?:\/\//,
@@ -365,6 +371,7 @@ test("includes the complete quiz flow in the GitHub Pages client build", async (
   );
   assert.match(css, /\.quiz-answer-button\s*\{[^}]*min-height: 68px/s);
   assert.match(css, /\.listening-image-options\s*\{[^}]*grid-template-columns: repeat\(3,/s);
+  assert.match(css, /\.listening-chinese-speak-button\s*\{[^}]*width: 48px;[^}]*height: 48px;/s);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.listening-image-options\s*\{[^}]*grid-template-columns: repeat\(2,/s);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.quiz-review-grid\s*\{[^}]*grid-template-columns: 1fr/s);
 
@@ -492,6 +499,7 @@ test("all generated page assets resolve below the GitHub Pages path", async () =
 
 test("includes the requested learning content and browser speech support", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const wordsModule = await readFile(new URL("../app/WordsModule.tsx", import.meta.url), "utf8");
   const speech = await readFile(new URL("../app/speech.ts", import.meta.url), "utf8");
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 
@@ -516,12 +524,78 @@ test("includes the requested learning content and browser speech support", async
   assert.match(speech, /utterance\.pitch = mode === "word" \? 1\.05 : 1/);
   assert.match(speech, /utterance\.volume = 1/);
   assert.match(speech, /speechSynthesis\.speak\(utterance\)/);
+  assert.match(speech, /export function speakChinese\(text: string\)/);
+  assert.match(speech, /language\.startsWith\("zh-cn"\)/);
+  assert.match(speech, /utterance\.lang = voice\?\.lang \?\? "zh-CN"/);
+  assert.match(speech, /refreshChineseVoices\(\);[\s\S]*window\.speechSynthesis\.cancel\(\)/);
+  assert.match(wordsModule, /className="word-visual"[\s\S]*speakChineseWord\(currentWord\.chinese/);
+  assert.match(wordsModule, /className="word-chinese"[\s\S]*speakChineseWord\(currentWord\.chinese/);
+  assert.match(wordsModule, /className="word-title-button"[\s\S]*speakWord\(currentWord\.word/);
   assert.match(page, /serviceWorker\.register\(/);
   assert.match(page, /new URL\("sw\.js", appBaseUrl\)/);
   assert.match(page, /scope: appBaseUrl\.pathname/);
   assert.match(page, /type: "CACHE_URLS"/);
   assert.match(css, /@media \(max-width: 760px\)/);
   assert.match(css, /@media \(max-width: 420px\)/);
+});
+
+test("speaks Chinese with a zh-CN voice and falls back safely", async () => {
+  const { prepareEnglishVoices, speakChinese, speakEnglish } = await import("../app/speech.ts");
+  const spoken = [];
+  let cancelCount = 0;
+  let voices = [
+    { lang: "en-US", name: "Samantha" },
+    { lang: "zh-TW", name: "Ting-Ting" },
+    { lang: "zh-CN", name: "Microsoft Xiaoxiao" },
+  ];
+
+  class MockSpeechSynthesisUtterance {
+    constructor(text) {
+      this.text = text;
+      this.lang = "";
+      this.voice = null;
+    }
+  }
+
+  globalThis.SpeechSynthesisUtterance = MockSpeechSynthesisUtterance;
+  globalThis.window = {
+    speechSynthesis: {
+      getVoices: () => voices,
+      addEventListener() {},
+      removeEventListener() {},
+      cancel() {
+        cancelCount += 1;
+      },
+      speak(utterance) {
+        spoken.push(utterance);
+      },
+    },
+  };
+
+  const stopWatchingVoices = prepareEnglishVoices();
+
+  try {
+    speakEnglish("apple", { mode: "word" });
+    speakChinese("苹果");
+
+    assert.equal(spoken[0].text, "apple");
+    assert.equal(spoken[0].lang, "en-US");
+    assert.equal(spoken[1].text, "苹果");
+    assert.equal(spoken[1].lang, "zh-CN");
+    assert.equal(spoken[1].voice.name, "Microsoft Xiaoxiao");
+
+    voices = [{ lang: "en-US", name: "Samantha" }];
+    speakChinese("香蕉");
+
+    assert.equal(spoken[2].text, "香蕉");
+    assert.equal(spoken[2].lang, "zh-CN");
+    assert.equal(spoken[2].voice, null);
+    assert.equal(cancelCount, 3, "every new utterance cancels unfinished speech first");
+  } finally {
+    stopWatchingVoices();
+    delete globalThis.window;
+    delete globalThis.SpeechSynthesisUtterance;
+  }
 });
 
 test("provides a valid standalone PWA manifest and install icons", async () => {
